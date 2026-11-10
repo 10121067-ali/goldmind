@@ -5,7 +5,7 @@ import { run, recompute, friendlyError } from '../service.js';
 import { onLive } from '../data.js';
 import { instrumentAnalysis, md, hasAI } from '../ai.js';
 import { advancedChart, technicalGauge, newsTimeline, econCalendar } from '../tv.js';
-import { esc, fp, num, dirClass, dirWord, errorText, skeleton, leanText, forecastHtml, scenariosHtml } from '../ui.js';
+import { esc, fp, num, dirClass, dirWord, errorText, skeleton, leanText, forecastHtml, scenariosHtml, sizeHtml } from '../ui.js';
 import { styleSeg } from './home.js';
 
 export function instrumentChips(cur, base) {
@@ -75,7 +75,7 @@ function paintSummary(root, id, r) {
       <div class="sl"><div class="k">${t('sl')}</div><div class="v num">${fp(p.sl, id)}</div></div>
       <div class="tp"><div class="k">${t('tp1')}</div><div class="v num">${fp(p.tp1, id)}</div></div>
       <div class="tp"><div class="k">${t('tp2')}</div><div class="v num">${fp(p.tp2, id)}</div></div>
-    </div>` : `<div class="wait-box mt">${esc(L(res.note) || t('noSignalWhy'))}</div>`}
+    </div>${sizeHtml(p, id)}` : `<div class="wait-box mt">${esc(L(res.note) || t('noSignalWhy'))}</div>`}
     <div class="row between mt small muted"><span>${t('source')}: ${esc(r.source)}</span><a href="#strategies/${id}">${t('allStrategies')} ←</a></div>`;
   root.querySelector('#fc').innerHTML = `<h3>🔮 ${t('forecast')}</h3>
     <div class="small">${t('lean')}: ${leanText(res.lean)}</div>

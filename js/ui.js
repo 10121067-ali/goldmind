@@ -1,5 +1,6 @@
 import { t, L, lang } from './i18n.js';
 import { BY_ID } from './config.js';
+import { store } from './store.js';
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const fp = (x, id) => (x == null || Number.isNaN(x) ? '—' : Number(x).toLocaleString('en-US', {
@@ -62,7 +63,33 @@ export function scenariosHtml(res, id, { max = 4 } = {}) {
         <span>${t('sl')} <b class="num down">${fp(s.sl, id)}</b></span>
         <span>${t('tp1')} <b class="num up">${fp(s.tp1, id)}</b></span>
         <span>${t('tp2')} <b class="num up">${fp(s.tp2, id)}</b></span></div>
+      ${sizeHtml(s, id)}
     </div>`).join('')}</div>`;
+}
+
+// Position size from the account balance and risk % set in Settings.
+export function sizeHtml(s, id) {
+  const bal = +store.get('balance'), pct = +store.get('riskPct');
+  if (!(bal > 0 && pct > 0)) return '';
+  const risk$ = bal * pct / 100, dist = Math.abs(s.entry - s.sl);
+  if (!(dist > 0)) return '';
+  const units = risk$ / dist, c = BY_ID[id]?.contract;
+  const usd = (v) => '$' + Math.round(v).toLocaleString('en-US');
+  let size;
+  if (c) {
+    const lots = Math.floor((units / c) * 100) / 100;
+    size = lots >= 0.01
+      ? `${L({ ar: 'لوت', en: 'Lot' })} <b class="num">${lots.toFixed(2)}</b>`
+      : `<span class="down">${L({ ar: 'أصغر لوت (0.01) بيخاطر بـ', en: 'Min lot (0.01) risks' })} <b class="num">${usd(0.01 * c * dist)}</b></span>`;
+  } else {
+    size = `${L({ ar: 'الكمية', en: 'Size' })} <b class="num">${units < 10 ? units.toFixed(2) : Math.round(units)}</b> ${L({ ar: 'وحدة', en: 'units' })}`;
+  }
+  const real = c ? Math.max(0.01, Math.floor((units / c) * 100) / 100) * c : units;
+  const money = (cls, v) => `<b class="num ${cls}" dir="ltr">${v}</b>`;
+  return `<div class="scn-z small"><span>💼 ${size}</span>
+    <span>${L({ ar: 'خسارة', en: 'Risk' })} ${money('down', '-' + usd(real * dist))}</span>
+    <span><bdi>TP1</bdi> ${money('up', '+' + usd(real * Math.abs(s.tp1 - s.entry)))}</span>
+    <span><bdi>TP2</bdi> ${money('up', '+' + usd(real * Math.abs(s.tp2 - s.entry)))}</span></div>`;
 }
 
 export function skeleton(lines = 3) {

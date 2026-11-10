@@ -3,6 +3,7 @@ import { store } from '../store.js';
 import { INSTRUMENTS, STYLES } from '../config.js';
 import { usage } from '../data.js';
 import { testProvider } from '../ai.js';
+import { enableAlerts } from '../alerts.js';
 import { esc } from '../ui.js';
 
 export function render(root) {
@@ -37,6 +38,30 @@ export function render(root) {
     </div>
 
     <div class="card">
+      <h3>💼 ${L({ ar: 'حسابي وحجم الصفقة', en: 'My account & position size' })}</h3>
+      <div class="row" style="gap:10px">
+        <div class="field" style="flex:1"><label>${L({ ar: 'رصيد الحساب ($)', en: 'Account balance ($)' })}</label><input type="number" inputmode="decimal" min="0" id="bal" value="${s.balance || ''}" placeholder="1000"></div>
+        <div class="field" style="flex:1"><label>${L({ ar: 'المخاطرة بالصفقة (%)', en: 'Risk per trade (%)' })}</label><input type="number" inputmode="decimal" min="0.1" max="10" step="0.1" id="risk" value="${s.riskPct}"></div>
+      </div>
+      <p class="small muted">${L({
+        ar: 'بس تحط رصيدك، كل خطة بتطلعلك معها كم لوت تفوت، وقدّيش بتخسر إذا ضرب الوقف وقدّيش بتربح عالأهداف بالدولار. (ذهب: 1 لوت = 100 أونصة، فضة: 5000، نفط: 1000 برميل. تأكّد من مواصفات الوسيط تبعك.)',
+        en: 'With a balance set, every plan shows the lot size and the dollar loss at the stop and gain at each target. (Gold 1 lot = 100 oz, silver 5000, oil 1000 bbl; check your broker.)',
+      })}</p>
+    </div>
+
+    <div class="card">
+      <h3>🔔 ${L({ ar: 'تنبيهات السعر', en: 'Price alerts' })}</h3>
+      <div class="seg" id="alerts">
+        <button data-a="1" class="${s.alerts ? 'on' : ''}">${L({ ar: 'شغّالة', en: 'On' })}</button>
+        <button data-a="0" class="${s.alerts ? '' : 'on'}">${L({ ar: 'مطفية', en: 'Off' })}</button>
+      </div>
+      <p class="small muted mt">${L({
+        ar: 'بيرنّ التلفون وبيهزّ وبيطلع إشعار لمّا السعر يوصل لدخول خطة جاهزة أو لأقرب دعم أو مقاومة. بيشتغل والتطبيق مفتوح (أو مفتوح من شوي بالخلفية).',
+        en: 'Rings, vibrates and notifies when price reaches a pending-order entry or the nearest support/resistance. Works while the app is open (or briefly in the background).',
+      })}</p><div id="alertmsg" class="small"></div>
+    </div>
+
+    <div class="card">
       <h3>🧭 ${t('style')}</h3>
       <div class="seg" id="style">${Object.entries(STYLES).map(([k, v]) => `<button data-k="${k}" class="${s.style === k ? 'on' : ''}">${L(v.label)}<small>${v.tfLabel}</small></button>`).join('')}</div>
     </div>
@@ -60,6 +85,23 @@ export function render(root) {
   root.querySelector('#lang').onclick = (e) => {
     const b = e.target.closest('button'); if (!b) return;
     store.set({ lang: b.dataset.l }); applyDir(); window.dispatchEvent(new Event('gm:relabel')); render(root);
+  };
+  const acct = () => {
+    const bal = Math.max(0, parseFloat(root.querySelector('#bal').value) || 0);
+    const risk = Math.min(10, Math.max(0.1, parseFloat(root.querySelector('#risk').value) || 1));
+    store.set({ balance: bal, riskPct: risk });
+  };
+  root.querySelector('#bal').onchange = acct;
+  root.querySelector('#risk').onchange = acct;
+  root.querySelector('#alerts').onclick = async (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    const am = root.querySelector('#alertmsg');
+    if (b.dataset.a === '1') {
+      const perm = await enableAlerts();
+      am.innerHTML = perm === 'granted' ? `<span class="up">✓ ${L({ ar: 'الإشعارات مسموحة', en: 'Notifications allowed' })}</span>`
+        : `<span class="down">${L({ ar: 'الإشعارات مش مسموحة، بس الرنّة والهزّة والتنبيه جوّا التطبيق شغّالين. فيك تسمح فيها من إعدادات Chrome للموقع.', en: 'Notifications blocked; in-app sound, vibration and banner still work. Allow them in Chrome site settings.' })}</span>`;
+    } else { store.set({ alerts: false }); am.textContent = ''; }
+    root.querySelectorAll('#alerts button').forEach(x => x.classList.toggle('on', x === b));
   };
   root.querySelector('#style').onclick = (e) => {
     const b = e.target.closest('button'); if (!b) return;

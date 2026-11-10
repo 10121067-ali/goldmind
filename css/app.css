@@ -151,6 +151,14 @@ main { padding: 12px 12px 0; max-width: 980px; margin: 0 auto; }
 .scn-t { font-weight: 700; font-size: 13.5px; }
 .scn-v { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 3px; color: var(--muted); }
 .scn-v b { color: var(--text); } .scn-v b.up { color: var(--buy); } .scn-v b.down { color: var(--sell); }
+.scn-z { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; padding: 5px 8px; border-radius: 8px; background: rgba(240,192,64,.08); color: var(--muted); }
+.scn-z b { color: var(--text); } .scn-z b.up { color: var(--buy); } .scn-z b.down { color: var(--sell); }
+.tr-row { display: grid; grid-template-columns: 1.1fr .8fr 2fr .7fr; gap: 6px; padding: 6px 2px; border-bottom: 1px solid var(--line); align-items: center; }
+.tr-row:first-of-type { margin-top: 8px; }
+#toasts { position: fixed; top: 64px; inset-inline: 10px; z-index: 50; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.toast { pointer-events: auto; background: var(--card2); border: 1px solid var(--gold2); border-radius: 12px; padding: 10px 12px; box-shadow: 0 8px 30px rgba(0,0,0,.5); animation: tin .25s ease-out; }
+.toast a { color: var(--gold2); display: inline-block; margin-top: 4px; }
+@keyframes tin { from { transform: translateY(-12px); opacity: 0; } to { transform: none; opacity: 1; } }
 .badge.likely { color: var(--gold2); border-color: rgba(233,185,73,.5); }
 .sub { font-size: 12.5px; font-weight: 700; color: var(--muted); margin-top: 12px; }
 .wait-box { background: var(--bg2); border-radius: 10px; padding: 9px 10px; font-size: 13px; margin-top: 6px; }

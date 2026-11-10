@@ -1,5 +1,6 @@
 import { t, applyDir } from './i18n.js';
 import { startLive } from './data.js';
+import { startAlerts } from './alerts.js';
 import * as home from './views/home.js';
 import * as analysis from './views/analysis.js';
 import * as strategies from './views/strategies.js';
@@ -38,6 +39,7 @@ window.addEventListener('online', netStatus);
 window.addEventListener('offline', netStatus);
 netStatus();
 startLive();
+startAlerts();
 route();
 
 // Remember the last instrument opened on pages 2 and 3.

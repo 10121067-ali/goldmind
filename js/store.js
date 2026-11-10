@@ -11,6 +11,9 @@ const DEFAULTS = {
   tdPerMinute: 8,
   tdPerDay: 800,
   liveEveryMs: 5000,
+  balance: 0,
+  riskPct: 1,
+  alerts: false,
 };
 
 let settings = { ...DEFAULTS, ...safeParse(localStorage.getItem(KEY)) };

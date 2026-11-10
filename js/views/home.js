@@ -6,7 +6,7 @@ import { getLive, onLive } from '../data.js';
 import { homeBrief, md, hasAI } from '../ai.js';
 import { tickerTape } from '../tv.js';
 import { loadCalendar, relevant } from '../calendar.js';
-import { esc, fp, num, ago, dirClass, dirWord, errorText, skeleton, leanText, forecastHtml, scenariosHtml } from '../ui.js';
+import { esc, fp, num, ago, dirClass, dirWord, errorText, skeleton, leanText, forecastHtml, scenariosHtml, sizeHtml } from '../ui.js';
 
 let results = {};
 let cleanup = [];
@@ -139,7 +139,7 @@ function paintCard(id, r) {
       <div class="tp"><div class="k">${t('tp1')}</div><div class="v num">${fp(p.tp1, id)}</div></div>
       <div class="tp"><div class="k">${t('tp2')}</div><div class="v num">${fp(p.tp2, id)}</div></div>
       <div class="tp" style="grid-column:span 3"><div class="k">${t('tp3')} · ${t('rr')}: <span class="num">1:${((Math.abs(p.tp3 - p.entry)) / p.risk).toFixed(1)}</span></div><div class="v num">${fp(p.tp3, id)}</div></div>
-    </div>`;
+    </div>${sizeHtml(p, id)}`;
   } else {
     body = `<div class="wait-box">${esc(L(res.note) || t('noSignalWhy'))}
       <div class="mt small">${t('lean')}: ${leanText(res.lean)}</div></div>

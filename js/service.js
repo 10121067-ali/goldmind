@@ -1,6 +1,7 @@
 import { BY_ID, STYLES, BAR_MS } from './config.js';
 import { store } from './store.js';
 import { getCandles, withLive } from './data.js';
+import { track } from './alerts.js';
 import { buildContext, analyze, backtest, history, forecast, scenarios, zonesReport, WARMUP } from './engine.js';
 
 const memo = new Map();   // key -> { ltf, htf, dxy, sources... }
@@ -45,8 +46,10 @@ function compute(id, style, entry) {
   if (fc && (fc.pUp - fc.baseUp) * Math.sign(lean) < -0.05) lean = 0;
   res.lean = lean;
   res.scenarios = scenarios(ctx, res.price, lean);
+  const zones = zonesReport(ctx);
+  if (style === store.get('style')) track(id, res, zones);
   return {
-    id, style, res, ctx, zones: zonesReport(ctx), liveApplied: applied,
+    id, style, res, ctx, zones, liveApplied: applied,
     source: entry.ltf.source, at: entry.ltf.at, stale: !!entry.ltf.stale, error: entry.ltf.error,
   };
 }

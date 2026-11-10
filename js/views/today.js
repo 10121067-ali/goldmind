@@ -6,6 +6,7 @@ import { onLive } from '../data.js';
 import { loadCalendar, relevant } from '../calendar.js';
 import { dayProjection } from '../dayforecast.js';
 import { generate, hasAI, md } from '../ai.js';
+import { record, grade, stats } from '../track.js';
 import { esc, fp, num, errorText, skeleton, leanText } from '../ui.js';
 
 const STYLE = 'day'; // 15-minute candles regardless of the chosen trading style
@@ -30,6 +31,7 @@ export function render(root, id) {
     <div class="card" id="td-events"><h3>📅 ${L({ ar: 'أحداث النهار', en: "Today's events" })}</h3>${skeleton(3)}</div>
     <div class="card" id="td-levels"><h3>🎯 ${L({ ar: 'احتمال لمس المستويات', en: 'Chance of touching key levels' })}</h3>${skeleton(3)}</div>
     <div class="card ai" id="td-ai"></div>
+    <div class="card" id="td-track"></div>
     <div class="card"><h3>ℹ️ ${L({ ar: 'كيف منحسب الرسمة؟', en: 'How is this drawn?' })}</h3><p class="small muted">${esc(L({
       ar: 'هيدي مش خط مضمون، هيدي مروحة احتمالات. منقيس من تاريخ السوق نفسو قدّيش بيتحرّك عادةً بكل ساعة من النهار (آسيا هادية، فتحة لندن ونيويورك حامية)، ومنعدّلها حسب نشاط السوق اليوم. بوقت الأخبار المهمّة منوسّع المروحة لأنو الحركة بتكبر، ومنميّلها حسب توقّع الاستراتيجيات. المنطقة الغامقة فيها السعر بـ 60% من الحالات، والفاتحة بـ 90%. وكل ما يتحرّك السعر الحي، الرسمة بتتحدّث.',
       en: 'This is not a guaranteed line but a probability fan. We measure from the market\'s own history how much it usually moves in each hour of the day (quiet Asia, busy London and New York opens), rescale to today\'s activity, widen the fan at high-impact news, and tilt it by the strategies\' forecast. The dark band holds price 60% of the time, the light one 90%. It updates with every live tick.',
@@ -51,6 +53,9 @@ export function render(root, id) {
     const evs = relevant(cal.events, id);
     const pj = dayProjection(r.ctx, r.res, levelsOf(r), evs);
     root._td = { r, pj };
+    if (r.liveApplied) record(id, pj);
+    grade(id, r.ctx, pj.barMs);
+    paintTrack(root, id);
     paintSummary(root, id, r, pj);
     paintChart(root, id, r, pj);
     paintEvents(root, pj, cal);
@@ -214,6 +219,34 @@ function paintLevels(root, id, pj) {
         <div class="bar lv-bar"><i style="width:${p}%;background:${col}"></i></div><span class="num lv-p">${p}%</span></div>`;
     }).join('')}
     <p class="small muted">${L({ ar: 'يعني قدّيش في احتمال إنو السعر يوصل لهالمستوى قبل آخر النهار.', en: 'Probability that price reaches each level before the end of the window.' })}</p>`;
+}
+
+function paintTrack(root, id) {
+  const box = root.querySelector('#td-track');
+  if (!box) return;
+  const s = stats(id);
+  const pct = (a, b) => (b ? Math.round((100 * a) / b) + '%' : '—');
+  const head = `<h3>📊 ${L({ ar: 'سجلّ التوقّعات (قدّيش منصدق؟)', en: 'Track record (how often are we right?)' })}</h3>`;
+  if (!s.n) {
+    box.innerHTML = head + `<p class="small muted">${L({
+      ar: 'التطبيق صار يسجّل توقّع كل نهار، وبعد ما يخلص النهار بيفحصو لحالو: الاتجاه صح ولا غلط، والإغلاق وقع جوّا المنطقة الغامقة ولا لأ. افتح هالصفحة كل يوم والنتيجة بتتعبّى هون، لتعرف بالأرقام قدّيش فيك تتّكل عليه.',
+      en: 'The app now records each day\'s forecast and grades it after the window closes: direction right or wrong, and whether the close landed in the dark band. Open this page daily and the score fills in here.',
+    })}</p>`;
+    return;
+  }
+  const rows = s.last.map(r => {
+    const ok = (r.close > r.p0) === (r.pUp > 0.5), called = Math.abs(r.pUp - 0.5) >= 0.03;
+    const inB = r.close >= r.lo && r.close <= r.hi;
+    return `<div class="tr-row small"><span>${new Date(r.end - 1).toLocaleDateString(lang() === 'ar' ? 'ar' : 'en', { weekday: 'short', day: 'numeric', month: 'numeric' })}</span>
+      <span>${called ? (r.pUp > 0.5 ? '▲' : '▼') + ' ' + Math.round(Math.max(r.pUp, 1 - r.pUp) * 100) + '%' : '≈'}</span>
+      <span class="num">${fp(r.p0, id)} → ${fp(r.close, id)}</span>
+      <span>${called ? (ok ? '✅' : '❌') : '➖'} ${inB ? '🎯' : ''}</span></div>`;
+  }).join('');
+  box.innerHTML = head + `<div class="td-grid">
+      <div><div class="k">${L({ ar: 'الاتجاه صح', en: 'Direction right' })}</div><div class="v num">${s.dirOk}/${s.called} · ${pct(s.dirOk, s.called)}</div></div>
+      <div><div class="k">${L({ ar: 'الإغلاق جوّا الغامق (الهدف ~60%)', en: 'Close in dark band (target ~60%)' })}</div><div class="v num">${s.inBand}/${s.n} · ${pct(s.inBand, s.n)}</div></div>
+    </div>${rows}
+    <p class="small muted">${L({ ar: '✅ الاتجاه صح · ❌ غلط · ➖ ما كان في ميل واضح · 🎯 الإغلاق جوّا المنطقة الغامقة', en: '✅ right · ❌ wrong · ➖ no clear call · 🎯 close inside the dark band' })}</p>`;
 }
 
 async function paintAI(root, id, r, pj, force) {
