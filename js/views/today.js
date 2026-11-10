@@ -222,7 +222,7 @@ async function paintAI(root, id, r, pj, force) {
   const header = `<h3>✨ ${L({ ar: 'الذكاء الاصطناعي يشرحلك النهار', en: 'AI walk-through of the day' })}<span class="sp"></span><button class="btn small" id="td-ai-go">${t('aiRun')}</button></h3>`;
   const bind = () => { const b = box.querySelector('#td-ai-go'); if (b) b.onclick = () => { const cur = root._td || { r, pj }; paintAI(root, id, cur.r, cur.pj, true); }; };
   if (!hasAI()) { box.innerHTML = header + `<p class="muted small">${t('aiNeedKey')} <a href="#settings">⚙️</a></p>`; return; }
-  const ck = `ai.day2.${id}.${lang()}`;
+  const ck = `ai.day3.${id}.${lang()}`;
   const hit = cache.get(ck);
   if (hit && !force && Date.now() - hit.at < 60 * 6e4) { show(hit.data); return; }
   if (!force) { box.innerHTML = header + `<p class="muted small">${L({ ar: 'اكبس "حلّل هلّق" ليشرحلك شو متوقّع اليوم ساعة بساعة.', en: 'Tap "Analyze now" for an hour-by-hour walk-through.' })}</p>`; bind(); return; }
@@ -234,6 +234,8 @@ async function paintAI(root, id, r, pj, force) {
   const sess = (h) => hm(Date.UTC(2000, 0, 1, Math.floor(h), (h % 1) * 60));
   const evLines = pj.events.filter(e => e.time >= pj.t0 && e.impact !== 'Holiday')
     .map(e => `${lt(e.time)} ${e.country} ${e.impact} "${e.title}" fcst ${e.forecast || '-'} prev ${e.previous || '-'}`).join('\n') || 'none';
+  const pastLines = pj.events.filter(e => e.time < pj.t0 && e.time > pj.t0 - 36 * 36e5 && e.impact !== 'Holiday')
+    .map(e => `${lt(e.time)} ${e.country} ${e.impact} "${e.title}" ${e.actual ? `actual ${e.actual}` : 'released (check the web for the actual)'} fcst ${e.forecast || '-'} prev ${e.previous || '-'}`).join('\n');
   const holidays = pj.events.filter(e => e.impact === 'Holiday').map(e => `${e.country} ${e.title}`).join(', ');
   const prompt = `You are a senior ${inst.name.en} intraday trader. All times below are the user's local time (${tz}). Now: ${lt(Date.now())}. Price ${fx(pj.price)}.
 Sessions in local time: Asia ${sess(0)}-${sess(7)}, London ${sess(7)}-${sess(12.5)}, New York ${sess(12.5)}-${sess(21)}.
@@ -241,7 +243,7 @@ Our quantitative projection from now until ${lt(pj.end - 1)}:
 - P(close higher than now) ${(pj.pUpClose * 100).toFixed(0)}%, 60% close range ${fx(pj.close60[0])}-${fx(pj.close60[1])}, expected high ${fx(pj.expHigh)}, expected low ${fx(pj.expLow)}, activity ${pj.volRatio.toFixed(2)}x usual.
 - Engine signal: ${r.res.dir > 0 ? 'BUY' : r.res.dir < 0 ? 'SELL' : 'WAIT'}, lean ${r.res.lean > 0 ? 'bullish' : r.res.lean < 0 ? 'bearish' : 'neutral'}.
 - Level touch probabilities: ${pj.levels.map(l => `${l.name} ${fx(l.price)} ${(l.pTouch * 100).toFixed(0)}%`).join('; ')}.
-Scheduled events (local time):
+${pastLines ? `Already released (do not describe these as upcoming):\n${pastLines}\n` : ''}Upcoming scheduled events (local time), the only releases still ahead in this window:
 ${evLines}${holidays ? `\nBank holidays (thin liquidity, no data releases): ${holidays}` : ''}
 Search the web for today's news on ${inst.name.en}, then write in ${lang() === 'ar' ? 'Lebanese/Levantine Arabic (keep tickers/indicator names in English)' : 'English'}, max 220 words, no tables:
 ### 🕐 
@@ -250,7 +252,7 @@ Search the web for today's news on ${inst.name.en}, then write in ${lang() === '
 (how to trade today with the levels above: where to buy, where to sell, where to stay out)
 ### ⚠️ 
 (main risks today)
-Use only the numbers above for levels; never invent prices or event times.`;
+Use only the numbers above for levels; never invent prices or event times. Ignore web articles older than 3 days. Keep each trade idea internally consistent (buy near support, sell near resistance, stop beyond the level).`;
   try {
     const out = await generate(prompt);
     cache.set(ck, out);
