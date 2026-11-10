@@ -50,6 +50,7 @@ export function render(root, id) {
     if (my !== gen) return;
     const evs = relevant(cal.events, id);
     const pj = dayProjection(r.ctx, r.res, levelsOf(r), evs);
+    root._td = { r, pj };
     paintSummary(root, id, r, pj);
     paintChart(root, id, r, pj);
     paintEvents(root, pj, cal);
@@ -219,25 +220,32 @@ async function paintAI(root, id, r, pj, force) {
   const box = root.querySelector('#td-ai');
   if (!box) return;
   const header = `<h3>✨ ${L({ ar: 'الذكاء الاصطناعي يشرحلك النهار', en: 'AI walk-through of the day' })}<span class="sp"></span><button class="btn small" id="td-ai-go">${t('aiRun')}</button></h3>`;
-  const bind = () => { const b = box.querySelector('#td-ai-go'); if (b) b.onclick = () => paintAI(root, id, r, pj, true); };
+  const bind = () => { const b = box.querySelector('#td-ai-go'); if (b) b.onclick = () => { const cur = root._td || { r, pj }; paintAI(root, id, cur.r, cur.pj, true); }; };
   if (!hasAI()) { box.innerHTML = header + `<p class="muted small">${t('aiNeedKey')} <a href="#settings">⚙️</a></p>`; return; }
-  const ck = `ai.day.${id}.${lang()}`;
+  const ck = `ai.day2.${id}.${lang()}`;
   const hit = cache.get(ck);
   if (hit && !force && Date.now() - hit.at < 60 * 6e4) { show(hit.data); return; }
   if (!force) { box.innerHTML = header + `<p class="muted small">${L({ ar: 'اكبس "حلّل هلّق" ليشرحلك شو متوقّع اليوم ساعة بساعة.', en: 'Tap "Analyze now" for an hour-by-hour walk-through.' })}</p>`; bind(); return; }
   box.innerHTML = header + skeleton(5); bind();
   const inst = BY_ID[id], dp = inst.dp, fx = (v) => Number(v).toFixed(dp);
-  const evLines = pj.events.filter(e => e.time >= pj.t0).map(e => `${new Date(e.time).toISOString().slice(0, 16)}Z ${e.country} ${e.impact} "${e.title}" fcst ${e.forecast || '-'} prev ${e.previous || '-'}`).join('\n') || 'none';
-  const prompt = `You are a senior ${inst.name.en} intraday trader. Now: ${new Date().toISOString()}. Price ${fx(pj.price)}.
-Our quantitative day projection until ${new Date(pj.end).toISOString()}:
+  const off = -new Date().getTimezoneOffset();
+  const tz = `UTC${off >= 0 ? '+' : '-'}${Math.floor(Math.abs(off) / 60)}${Math.abs(off) % 60 ? ':' + String(Math.abs(off) % 60).padStart(2, '0') : ''}`;
+  const lt = (ms) => `${new Date(ms).toLocaleDateString('en', { weekday: 'short' })} ${hm(ms)}`;
+  const sess = (h) => hm(Date.UTC(2000, 0, 1, Math.floor(h), (h % 1) * 60));
+  const evLines = pj.events.filter(e => e.time >= pj.t0 && e.impact !== 'Holiday')
+    .map(e => `${lt(e.time)} ${e.country} ${e.impact} "${e.title}" fcst ${e.forecast || '-'} prev ${e.previous || '-'}`).join('\n') || 'none';
+  const holidays = pj.events.filter(e => e.impact === 'Holiday').map(e => `${e.country} ${e.title}`).join(', ');
+  const prompt = `You are a senior ${inst.name.en} intraday trader. All times below are the user's local time (${tz}). Now: ${lt(Date.now())}. Price ${fx(pj.price)}.
+Sessions in local time: Asia ${sess(0)}-${sess(7)}, London ${sess(7)}-${sess(12.5)}, New York ${sess(12.5)}-${sess(21)}.
+Our quantitative projection from now until ${lt(pj.end - 1)}:
 - P(close higher than now) ${(pj.pUpClose * 100).toFixed(0)}%, 60% close range ${fx(pj.close60[0])}-${fx(pj.close60[1])}, expected high ${fx(pj.expHigh)}, expected low ${fx(pj.expLow)}, activity ${pj.volRatio.toFixed(2)}x usual.
 - Engine signal: ${r.res.dir > 0 ? 'BUY' : r.res.dir < 0 ? 'SELL' : 'WAIT'}, lean ${r.res.lean > 0 ? 'bullish' : r.res.lean < 0 ? 'bearish' : 'neutral'}.
 - Level touch probabilities: ${pj.levels.map(l => `${l.name} ${fx(l.price)} ${(l.pTouch * 100).toFixed(0)}%`).join('; ')}.
-Scheduled events (UTC):
-${evLines}
-Search the web for today's news on ${inst.name.en}, then write in ${lang() === 'ar' ? 'Lebanese/Levantine Arabic (keep tickers/indicator names in English)' : 'English'}, max 220 words:
+Scheduled events (local time):
+${evLines}${holidays ? `\nBank holidays (thin liquidity, no data releases): ${holidays}` : ''}
+Search the web for today's news on ${inst.name.en}, then write in ${lang() === 'ar' ? 'Lebanese/Levantine Arabic (keep tickers/indicator names in English)' : 'English'}, max 220 words, no tables:
 ### 🕐 
-(the day hour by hour: sessions (Asia/London/New York) and each event above, what is likely around it; give times in UTC and say they are UTC)
+(from now until the end of the window only, never hours already past: the coming sessions and each event above, what is likely around it; use the local times exactly as given)
 ### 🎯 
 (how to trade today with the levels above: where to buy, where to sell, where to stay out)
 ### ⚠️ 

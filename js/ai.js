@@ -225,10 +225,20 @@ Never invent prices, times or engine signals. No hype; be honest about uncertain
 export function md(text) {
   const esc = (s) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const lines = esc(text).split(/\r?\n/);
-  let html = '', inList = false;
+  let html = '', inList = false, inTable = false;
   for (let raw of lines) {
     const line = raw.trim();
     const inline = (s) => s.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|\s)\*(\S.+?)\*(?=\s|$)/g, '$1<i>$2</i>');
+    if (/^\|.*\|$/.test(line)) {
+      if (inList) { html += '</ul>'; inList = false; }
+      const cells = line.slice(1, -1).split('|').map(c => c.trim());
+      if (cells.every(c => /^:?-{2,}:?$/.test(c))) continue;
+      const tag = inTable ? 'td' : 'th';
+      if (!inTable) { html += '<div class="md-tw"><table class="md-t">'; inTable = true; }
+      html += `<tr>${cells.map(c => `<${tag}>${inline(c)}</${tag}>`).join('')}</tr>`;
+      continue;
+    }
+    if (inTable) { html += '</table></div>'; inTable = false; }
     if (/^[-*•]\s+/.test(line) || /^\d+[.)]\s+/.test(line)) {
       if (!inList) { html += '<ul>'; inList = true; }
       html += `<li>${inline(line.replace(/^([-*•]|\d+[.)])\s+/, ''))}</li>`;
@@ -240,5 +250,6 @@ export function md(text) {
     html += h ? `<h4>${inline(h[1])}</h4>` : `<p>${inline(line)}</p>`;
   }
   if (inList) html += '</ul>';
+  if (inTable) html += '</table></div>';
   return html;
 }

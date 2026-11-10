@@ -160,6 +160,10 @@ main { padding: 12px 12px 0; max-width: 980px; margin: 0 auto; }
 .ai-body p { margin: 4px 0; }
 .ai-body ul { margin: 4px 0; padding-inline-start: 20px; }
 .ai-body li { margin: 3px 0; }
+.md-tw { overflow-x: auto; margin: 6px 0; }
+.md-t { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.md-t th, .md-t td { border: 1px solid var(--line, #2a2f3a); padding: 5px 6px; text-align: start; vertical-align: top; }
+.md-t th { color: var(--gold2); font-weight: 600; }
 .sources { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .sources a { font-size: 11.5px; text-decoration: none; background: var(--bg2); border: 1px solid var(--line); padding: 3px 8px; border-radius: 8px; color: var(--muted); max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
