@@ -18,9 +18,12 @@ export const BY_ID = Object.fromEntries(INSTRUMENTS.map(x => [x.id, x]));
 
 // Entry timeframe (ltf) and trend-filter timeframe (htf) for each trading style.
 export const STYLES = {
-  scalp: { ltf: '5min', htf: '1h', label: { ar: 'سكالبينغ', en: 'Scalping' }, tfLabel: '5m', tvInterval: '5' },
-  day: { ltf: '15min', htf: '4h', label: { ar: 'يومي', en: 'Day' }, tfLabel: '15m', tvInterval: '15' },
-  swing: { ltf: '4h', htf: '1day', label: { ar: 'سوينغ', en: 'Swing' }, tfLabel: '4H', tvInterval: '240' },
+  scalp: { ltf: '5min', htf: '1h', label: { ar: 'سكالبينغ', en: 'Scalping' }, tfLabel: '5m', tvInterval: '5',
+    horizons: [{ bars: 6, label: { ar: 'نص ساعة', en: '30 min' } }, { bars: 12, label: { ar: 'ساعة', en: '1 hour' } }] },
+  day: { ltf: '15min', htf: '4h', label: { ar: 'يومي', en: 'Day' }, tfLabel: '15m', tvInterval: '15',
+    horizons: [{ bars: 4, label: { ar: 'ساعة', en: '1 hour' } }, { bars: 16, label: { ar: '4 ساعات', en: '4 hours' } }] },
+  swing: { ltf: '4h', htf: '1day', label: { ar: 'سوينغ', en: 'Swing' }, tfLabel: '4H', tvInterval: '240',
+    horizons: [{ bars: 6, label: { ar: 'يوم', en: '1 day' } }, { bars: 18, label: { ar: '3 أيام', en: '3 days' } }] },
 };
 
 export const BAR_MS = { '5min': 3e5, '15min': 9e5, '1h': 36e5, '4h': 144e5, '1day': 864e5 };

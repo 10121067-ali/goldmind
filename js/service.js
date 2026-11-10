@@ -1,10 +1,10 @@
 import { BY_ID, STYLES, BAR_MS } from './config.js';
 import { store } from './store.js';
 import { getCandles, withLive } from './data.js';
-import { buildContext, analyze, backtest, zonesReport, WARMUP } from './engine.js';
+import { buildContext, analyze, backtest, history, forecast, scenarios, zonesReport, WARMUP } from './engine.js';
 
 const memo = new Map();   // key -> { ltf, htf, dxy, sources... }
-const btMemo = new Map(); // key -> backtest result for a given candle snapshot
+const btMemo = new Map(); // id.style -> { at, raw ctx, score history, backtest } for the latest candles
 
 async function load(id, style, force) {
   const st = STYLES[style];
@@ -28,9 +28,23 @@ function compute(id, style, entry) {
   const htfCtx = entry.htf && entry.htf.candles.length > WARMUP ? buildContext(entry.htf.candles, BAR_MS[st.htf]) : null;
   const dxyCtx = entry.dxy && entry.dxy.candles.length > WARMUP ? buildContext(entry.dxy.candles, BAR_MS[st.htf]) : null;
   const res = analyze(ctx, { htf: htfCtx, dxy: dxyCtx, isMetal: inst.metal, livePrice: candles[candles.length - 1].c });
-  const btKey = `${id}.${style}.${entry.ltf.at}`;
-  if (!btMemo.has(btKey)) btMemo.set(btKey, backtest(buildContext(entry.ltf.candles, BAR_MS[st.ltf])));
-  res.backtest = btMemo.get(btKey);
+  const btKey = `${id}.${style}`;
+  if (btMemo.get(btKey)?.at !== entry.ltf.at) {
+    const raw = buildContext(entry.ltf.candles, BAR_MS[st.ltf]);
+    const hist = history(raw);
+    btMemo.set(btKey, { at: entry.ltf.at, raw, hist, bt: backtest(raw, hist) });
+  }
+  const { raw, hist, bt } = btMemo.get(btKey);
+  res.backtest = bt;
+  res.forecast = forecast(raw, hist, res.score, st.horizons, res.price);
+  // The lean only counts when neither the higher timeframe nor the empirical
+  // forecast contradicts it.
+  let lean = res.score;
+  const fc = res.forecast[res.forecast.length - 1];
+  if (res.htfBias != null && Math.sign(res.htfBias) === -Math.sign(lean) && Math.abs(res.htfBias) >= 0.5) lean = 0;
+  if (fc && (fc.pUp - fc.baseUp) * Math.sign(lean) < -0.05) lean = 0;
+  res.lean = lean;
+  res.scenarios = scenarios(ctx, res.price, lean);
   return {
     id, style, res, ctx, zones: zonesReport(ctx), liveApplied: applied,
     source: entry.ltf.source, at: entry.ltf.at, stale: !!entry.ltf.stale, error: entry.ltf.error,

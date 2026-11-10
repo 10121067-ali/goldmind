@@ -65,6 +65,8 @@ export function engineLine(id, res) {
     ` agreement ${res.confidence}% score ${res.score.toFixed(0)} regime ${res.regime.id}` +
     (p ? ` | entry ${fmt(p.entry, dp)} SL ${fmt(p.sl, dp)} TP1 ${fmt(p.tp1, dp)} TP2 ${fmt(p.tp2, dp)} TP3 ${fmt(p.tp3, dp)}` : '') +
     (res.backtest ? ` | backtest ${res.backtest.trades} trades, win ${(res.backtest.winRate * 100).toFixed(0)}%, avgR ${res.backtest.avgR.toFixed(2)}` : '') +
+    (res.forecast?.length ? ` | empirical forecast: ${res.forecast.map(f => `next ${f.label.en} P(up) ${(f.pUp * 100).toFixed(0)}% (base ${(f.baseUp * 100).toFixed(0)}%), 60% range ${fmt(f.lo, dp)}-${fmt(f.hi, dp)}`).join('; ')}` : '') +
+    (!p && res.scenarios?.length ? ` | pending plans: ${res.scenarios.map(s => `${s.type} ${fmt(s.entry, dp)} SL ${fmt(s.sl, dp)} TP1 ${fmt(s.tp1, dp)} TP2 ${fmt(s.tp2, dp)}`).join('; ')}` : '') +
     ` | reasons: ${reasons}`;
 }
 

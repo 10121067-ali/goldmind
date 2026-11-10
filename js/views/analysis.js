@@ -5,7 +5,7 @@ import { run, recompute, friendlyError } from '../service.js';
 import { onLive } from '../data.js';
 import { instrumentAnalysis, md } from '../ai.js';
 import { advancedChart, technicalGauge, newsTimeline, econCalendar } from '../tv.js';
-import { esc, fp, num, dirClass, dirWord, errorText, skeleton } from '../ui.js';
+import { esc, fp, num, dirClass, dirWord, errorText, skeleton, leanText, forecastHtml, scenariosHtml } from '../ui.js';
 import { styleSeg } from './home.js';
 
 export function instrumentChips(cur, base) {
@@ -29,6 +29,7 @@ export function render(root, id) {
     <div id="seg"></div>
     <div class="card mt"><h3>📈 ${t('chart')} · ${esc(L(inst.name))}</h3><div class="tv-box" id="chart"></div></div>
     <div class="card" id="sum">${skeleton(2)}</div>
+    <div class="card" id="fc"><h3>🔮 ${t('forecast')}</h3>${skeleton(3)}</div>
     <div class="card" id="zones"><h3>🎯 ${t('zones')}</h3>${skeleton(4)}</div>
     <div class="card ai" id="ai"></div>
     <div class="card"><h3>🧭 ${t('tvTech')}</h3><div class="tv-box mid" id="gauge"></div></div>
@@ -56,6 +57,7 @@ export function render(root, id) {
     const msg = `<p class="err">${errorText(friendlyError(e))}</p>`;
     root.querySelector('#sum').innerHTML = msg;
     root.querySelector('#zones').innerHTML = `<h3>🎯 ${t('zones')}</h3>` + msg;
+    root.querySelector('#fc').innerHTML = `<h3>🔮 ${t('forecast')}</h3>` + msg;
     paintAI(root, id, null, style, false);
   });
 }
@@ -75,6 +77,13 @@ function paintSummary(root, id, r) {
       <div class="tp"><div class="k">${t('tp2')}</div><div class="v num">${fp(p.tp2, id)}</div></div>
     </div>` : `<div class="wait-box mt">${esc(L(res.note) || t('noSignalWhy'))}</div>`}
     <div class="row between mt small muted"><span>${t('source')}: ${esc(r.source)}</span><a href="#strategies/${id}">${t('allStrategies')} ←</a></div>`;
+  root.querySelector('#fc').innerHTML = `<h3>🔮 ${t('forecast')}</h3>
+    <div class="small">${t('lean')}: ${leanText(res.lean)}</div>
+    ${forecastHtml(res, id)}
+    <p class="small muted">${esc(t('forecastHow'))}</p>
+    <div class="sub">📋 ${t('plans')}</div>
+    ${scenariosHtml(res, id) || '<p class="muted small">—</p>'}
+    <p class="small muted">${esc(t('plansHow'))}</p>`;
 }
 
 function paintZones(root, id, r) {

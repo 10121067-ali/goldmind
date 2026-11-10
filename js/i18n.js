@@ -85,6 +85,28 @@ const T = {
   offline: { ar: 'ما في إنترنت، وعم نعرض آخر بيانات محفوظة', en: 'Offline; showing last saved data' },
   queue: { ar: 'طلبات بالانتظار (حد الدقيقة)', en: 'Requests queued (per-minute limit)' },
   instrument: { ar: 'السوق', en: 'Market' },
+  forecast: { ar: 'توقّع السعر', en: 'Price forecast' },
+  within: { ar: 'خلال', en: 'Next' },
+  usually: { ar: 'عادةً', en: 'usually' },
+  expRange: { ar: 'المدى المتوقّع', en: 'Expected range' },
+  forecastHow: {
+    ar: 'محسوب من تاريخ السوق نفسو: كل المرّات يلي كانت فيها الاستراتيجيات بنفس الوضع تبع هلّق، شو صار بالسعر بعدها. المدى المتوقّع هو المكان يلي وصلّو السعر بـ 60% من هالمرّات.',
+    en: "Computed from the market's own history: every past time the strategies looked like they do now, what price did next. The expected range is where price ended in 60% of those cases.",
+  },
+  plans: { ar: 'خطط جاهزة', en: 'Ready-made plans' },
+  plansHow: {
+    ar: 'أوامر معلّقة على أقرب مناطق. حطّها عند الوسيط وهي بتتفعّل لحالها إذا وصل السعر. "الأرجح" يعني إنها مع ميل السوق (الاستراتيجيات والفريم الأكبر والتوقّع كلّن متّفقين).',
+    en: 'Pending orders at the nearest zones. Place them with your broker and they trigger only if price gets there. "Likely" means they agree with the market lean (strategies, higher timeframe and forecast all agree).',
+  },
+  sc_buyLimit: { ar: 'شراء ليميت عند الدعم', en: 'Buy limit at support' },
+  sc_sellLimit: { ar: 'بيع ليميت عند المقاومة', en: 'Sell limit at resistance' },
+  sc_buyStop: { ar: 'شراء إذا كسر المقاومة', en: 'Buy stop on breakout' },
+  sc_sellStop: { ar: 'بيع إذا كسر الدعم', en: 'Sell stop on breakdown' },
+  likely: { ar: 'الأرجح', en: 'Likely' },
+  lean: { ar: 'ميل السوق', en: 'Lean' },
+  leanUp: { ar: 'للطلوع', en: 'Bullish' },
+  leanDown: { ar: 'للنزول', en: 'Bearish' },
+  leanFlat: { ar: 'حيادي', en: 'Neutral' },
 };
 
 export const lang = () => store.get('lang');

@@ -5,7 +5,7 @@ import { run, recompute, friendlyError } from '../service.js';
 import { getLive, onLive } from '../data.js';
 import { homeBrief, md } from '../ai.js';
 import { tickerTape } from '../tv.js';
-import { esc, fp, num, ago, dirClass, dirWord, errorText, skeleton } from '../ui.js';
+import { esc, fp, num, ago, dirClass, dirWord, errorText, skeleton, leanText, forecastHtml, scenariosHtml } from '../ui.js';
 
 let results = {};
 let cleanup = [];
@@ -125,11 +125,11 @@ function paintCard(id, r) {
       <div class="tp" style="grid-column:span 3"><div class="k">${t('tp3')} · ${t('rr')}: <span class="num">1:${((Math.abs(p.tp3 - p.entry)) / p.risk).toFixed(1)}</span></div><div class="v num">${fp(p.tp3, id)}</div></div>
     </div>`;
   } else {
-    const z = r.zones;
     body = `<div class="wait-box">${esc(L(res.note) || t('noSignalWhy'))}
-      ${z.support[0] ? `<div class="mt small">🟢 ${t('buyZones')}: <b class="num">${fp(z.support[0].low, id)} – ${fp(z.support[0].high, id)}</b></div>` : ''}
-      ${z.resistance[0] ? `<div class="small">🔴 ${t('sellZones')}: <b class="num">${fp(z.resistance[0].low, id)} – ${fp(z.resistance[0].high, id)}</b></div>` : ''}</div>`;
+      <div class="mt small">${t('lean')}: ${leanText(res.lean)}</div></div>
+      <div class="sub">📋 ${t('plans')}</div>${scenariosHtml(res, id, { max: 2 })}`;
   }
+  body += `<div class="sub">🔮 ${t('forecast')}</div>${forecastHtml(res, id, { only: true })}`;
   const reasons = `<div class="reasons">${res.top.slice(0, 3).map(v => `<span>${esc(L(v.why))}</span>`).join('')}</div>`;
   const bt = res.backtest;
   const foot = `<div class="mk-foot">

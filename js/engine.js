@@ -157,16 +157,94 @@ export function zonesReport(ctx) {
   };
 }
 
+// Combined score and agreement at every past bar (no look-ahead). Shared by the
+// backtest and the forecast so the expensive per-bar votes run once.
+export function history(ctx) {
+  const sc = new Float64Array(ctx.n).fill(NaN), ag = new Float64Array(ctx.n).fill(NaN);
+  for (let i = WARMUP; i < ctx.n; i++) {
+    const s = score(votesAt(ctx, i).votes);
+    sc[i] = s.score; ag[i] = s.agreement;
+  }
+  return { sc, ag };
+}
+
+const quantile = (sorted, q) => {
+  if (!sorted.length) return 0;
+  const p = (sorted.length - 1) * q, lo = Math.floor(p), hi = Math.ceil(p);
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (p - lo);
+};
+
+// Empirical forecast: on past bars whose combined score was close to today's,
+// how often was price higher `bars` later? Overlapping windows are far from
+// independent, so the effective sample size is ~samples/bars and the result is
+// shrunk toward the unconditional rate accordingly (prior weight PRIOR_N).
+// Moves are % returns rescaled by today's volatility relative to the median
+// (per-bar ATR is unusable as a scale: quiet weekend bars make it explode).
+const PRIOR_N = 12;
+export function forecast(ctx, hist, s, horizons, price) {
+  const i = ctx.n - 1;
+  const volPct = [];
+  for (let j = WARMUP; j < ctx.n; j++) if (ctx.atr[j] > 0) volPct.push(ctx.atr[j] / ctx.c[j]);
+  volPct.sort((x, y) => x - y);
+  const volRatio = volPct.length ? (ctx.atr[i] / ctx.c[i]) / quantile(volPct, 0.5) : 1;
+  return horizons.map(({ bars, label }) => {
+    const all = [], near = [], wide = [];
+    for (let j = WARMUP; j + bars < ctx.n; j++) {
+      if (Number.isNaN(hist.sc[j])) continue;
+      const m = (ctx.c[j + bars] - ctx.c[j]) / ctx.c[j];
+      all.push(m);
+      const d = Math.abs(hist.sc[j] - s);
+      if (d <= 10) near.push(m);
+      if (d <= 20) wide.push(m);
+    }
+    if (all.length < bars * 5) return null;
+    const minN = Math.max(40, bars * 4);
+    const set = near.length >= minN ? near : wide.length >= minN ? wide : all;
+    const base = all.filter(m => m > 0).length / all.length;
+    const raw = set.filter(m => m > 0).length / set.length;
+    const nEff = set.length / bars;
+    const w = set === all ? 0 : nEff / (nEff + PRIOR_N);
+    const sAll = [...all].sort((x, y) => x - y), sSet = [...set].sort((x, y) => x - y);
+    const shift = w * (quantile(sSet, 0.5) - quantile(sAll, 0.5));
+    const at = q => price * (1 + (quantile(sAll, q) + shift) * volRatio);
+    return {
+      bars, label, samples: set.length, similar: set !== all, pUp: base + w * (raw - base), baseUp: base,
+      mid: at(0.5), lo: at(0.2), hi: at(0.8),
+    };
+  }).filter(Boolean);
+}
+
+// Ready-made conditional plans around the nearest zones, useful when the engine
+// says wait: limit entries at the zones and stop entries on a breakout.
+export function scenarios(ctx, price, lean) {
+  const i = ctx.n - 1, a = ctx.atr[i];
+  if (!(a > 0)) return [];
+  const { support, resistance } = nearestZones(ctx, i);
+  const sup = support.find(z => z.high < price && price - z.high <= 4 * a);
+  const res = resistance.find(z => z.low > price && z.low - price <= 4 * a);
+  const mk = (type, dir, entry, sl) => {
+    const risk = Math.max(Math.abs(entry - sl), 0.8 * a);
+    return {
+      type, dir, entry, sl: entry - dir * risk, tp1: entry + dir * risk, tp2: entry + dir * 2 * risk,
+      likely: Math.sign(lean) === dir && Math.abs(lean) >= 8,
+    };
+  };
+  const out = [];
+  if (sup) out.push(mk('buyLimit', 1, sup.high, sup.low - 0.2 * a));
+  if (res) out.push(mk('sellLimit', -1, res.low, res.high + 0.2 * a));
+  if (res) out.push(mk('buyStop', 1, res.high + 0.1 * a, res.mid - 0.2 * a));
+  if (sup) out.push(mk('sellStop', -1, sup.low - 0.1 * a, sup.mid + 0.2 * a));
+  return out;
+}
+
 // Honest walk-forward backtest of the combined signal (no look-ahead):
 // enter at the close of the signal bar, take half at 1R and move the stop to
 // breakeven, exit the rest at 2R. A bar touching both SL and TP counts as a loss.
-export function backtest(ctx, { maxHold = 48 } = {}) {
+export function backtest(ctx, hist = history(ctx), { maxHold = 48 } = {}) {
   const trades = [];
   let i = WARMUP;
   while (i < ctx.n - 2) {
-    const { votes } = votesAt(ctx, i);
-    const sc = score(votes);
-    const cls = classify(sc.score, sc.agreement);
+    const cls = classify(hist.sc[i], hist.ag[i]);
     if (cls.dir === 0) { i++; continue; }
     const p = tradePlan(ctx, i, cls.dir, ctx.c[i]);
     const d = cls.dir;
