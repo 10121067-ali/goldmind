@@ -75,9 +75,12 @@ async function groqOnce(prompt, key, { model, search, maxTokens }) {
   const msg = j.choices?.[0]?.message || {};
   const text = (msg.content || '').replace(/【[^】]*】/g, '').trim();
   if (!text) throw new Error('empty');
-  const sources = [];
+  const sources = [], seen = new Set();
   for (const tool of msg.executed_tools || []) {
-    for (const s of tool.search_results?.results || []) if (s.url) sources.push({ uri: s.url, title: s.title });
+    for (const s of tool.search_results?.results || []) {
+      if (!s.url || seen.has(s.url) || /viewing lines/i.test(s.title || '')) continue;
+      seen.add(s.url); sources.push({ uri: s.url, title: (s.title || s.url).replace(/\s+/g, ' ').trim() });
+    }
   }
   return { text, sources: sources.slice(0, 8), model: 'Groq · ' + model.replace('openai/', '') + (search ? ' + web' : '') };
 }
@@ -151,10 +154,10 @@ Write in ${langName()}. Max 170 words. Use this exact structure with short bulle
 ### 🌍 
 (market mood today + the 2-3 news items that matter most, each with its likely effect)
 ### 🎯 
-(the best 1-2 opportunities. Only recommend a trade when the engine signal and the news agree; otherwise say wait. Quote the engine's entry/SL/targets.)
+(the best 1-2 opportunities, ONLY among the markets listed above. Only recommend a trade when the engine signal and the news agree; otherwise say wait. Quote the engine's entry/SL/targets exactly.)
 ### ⚠️ 
-(today's risk events with time in UTC, and what to avoid)
-Never invent prices. Be direct and honest; no hype.
+(upcoming risk events you actually found in a source, with time converted to UTC; skip events already released today, and say "time unconfirmed" if unsure)
+Never invent prices, times or engine signals. Do not claim an engine signal for a market that is not listed above. Be direct and honest; no hype.
 After the text, add one line per market in exactly this format (no extra text):
 VERDICT XAU: BUY|SELL|WAIT
 (one line for each of: ${Object.keys(results).join(', ')})`;
@@ -195,8 +198,8 @@ Write in ${langName()}, max 300 words, with these sections:
 ### 🎯 
 (trade plan: agree with the engine signal, or explain clearly why to wait. Use the engine's entry/SL/targets.)
 ### 📅 
-(upcoming events this week that can move ${inst.short})
-Never invent prices. No hype; be honest about uncertainty.`;
+(upcoming events this week that can move ${inst.short}, only ones you found in a source, times in UTC or "time unconfirmed")
+Never invent prices, times or engine signals. No hype; be honest about uncertainty.`;
   const out = await generate(prompt);
   cache.set(ck, out);
   return out;
