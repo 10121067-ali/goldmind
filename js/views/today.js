@@ -222,7 +222,7 @@ async function paintAI(root, id, r, pj, force) {
   const header = `<h3>✨ ${L({ ar: 'الذكاء الاصطناعي يشرحلك النهار', en: 'AI walk-through of the day' })}<span class="sp"></span><button class="btn small" id="td-ai-go">${t('aiRun')}</button></h3>`;
   const bind = () => { const b = box.querySelector('#td-ai-go'); if (b) b.onclick = () => { const cur = root._td || { r, pj }; paintAI(root, id, cur.r, cur.pj, true); }; };
   if (!hasAI()) { box.innerHTML = header + `<p class="muted small">${t('aiNeedKey')} <a href="#settings">⚙️</a></p>`; return; }
-  const ck = `ai.day4.${id}.${lang()}`;
+  const ck = `ai.day5.${id}.${lang()}`;
   const hit = cache.get(ck);
   if (hit && !force && Date.now() - hit.at < 60 * 6e4) { show(hit.data); return; }
   if (!force) { box.innerHTML = header + `<p class="muted small">${L({ ar: 'اكبس "حلّل هلّق" ليشرحلك شو متوقّع اليوم ساعة بساعة.', en: 'Tap "Analyze now" for an hour-by-hour walk-through.' })}</p>`; bind(); return; }
@@ -230,7 +230,15 @@ async function paintAI(root, id, r, pj, force) {
   const inst = BY_ID[id], dp = inst.dp, fx = (v) => Number(v).toFixed(dp);
   const off = -new Date().getTimezoneOffset();
   const tz = `UTC${off >= 0 ? '+' : '-'}${Math.floor(Math.abs(off) / 60)}${Math.abs(off) % 60 ? ':' + String(Math.abs(off) % 60).padStart(2, '0') : ''}`;
-  const lt = (ms) => `${new Date(ms).toLocaleDateString('en', { weekday: 'short' })} ${hm(ms)}`;
+  const dayKey = (ms) => new Date(ms).toDateString();
+  const rel = (ms) => {
+    const d = new Date(); const k = dayKey(ms);
+    if (k === dayKey(d)) return 'today';
+    if (k === dayKey(d.getTime() + 864e5)) return 'tomorrow';
+    if (k === dayKey(d.getTime() - 864e5)) return 'yesterday';
+    return new Date(ms).toLocaleDateString('en', { weekday: 'long' });
+  };
+  const lt = (ms) => `${rel(ms)} (${new Date(ms).toLocaleDateString('en', { weekday: 'short' })}) ${hm(ms)}`;
   const sess = (h) => hm(Date.UTC(2000, 0, 1, Math.floor(h), (h % 1) * 60));
   const evLines = pj.events.filter(e => e.time >= pj.t0 && e.impact !== 'Holiday')
     .map(e => `${lt(e.time)} ${e.country} ${e.impact} "${e.title}" fcst ${e.forecast || '-'} prev ${e.previous || '-'}`).join('\n') || 'none';

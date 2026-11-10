@@ -62,9 +62,13 @@ const GROQ_TRIES = [
   { model: 'openai/gpt-oss-120b', search: false },
 ];
 
+const staleYear = (s) => (String(s).match(/\b20\d\d\b/g) || []).some(y => +y < new Date().getFullYear() - (new Date().getMonth() === 0 ? 1 : 0));
+
 async function groqOnce(prompt, key, { model, search, maxTokens }) {
+  const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const sys = `Today is ${today}. ${search ? `When searching, include the month and year in queries (e.g. "${new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}"). ` : ''}Only use news from the last 3 days; ignore and do not cite anything older, even if it ranks first.`;
   const body = {
-    model, messages: [{ role: 'user', content: prompt }],
+    model, messages: [{ role: 'system', content: sys }, { role: 'user', content: prompt }],
     temperature: 0.4, max_completion_tokens: maxTokens, reasoning_effort: 'low',
   };
   if (search) body.tools = [{ type: 'browser_search' }];
@@ -79,7 +83,7 @@ async function groqOnce(prompt, key, { model, search, maxTokens }) {
   const sources = [], seen = new Set();
   for (const tool of msg.executed_tools || []) {
     for (const s of tool.search_results?.results || []) {
-      if (!s.url || seen.has(s.url) || /viewing lines/i.test(s.title || '')) continue;
+      if (!s.url || seen.has(s.url) || /viewing lines/i.test(s.title || '') || staleYear(`${s.title} ${s.url}`)) continue;
       seen.add(s.url); sources.push({ uri: s.url, title: (s.title || s.url).replace(/\s+/g, ' ').trim() });
     }
   }
