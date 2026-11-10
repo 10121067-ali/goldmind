@@ -3,7 +3,7 @@ import { store } from '../store.js';
 import { INSTRUMENTS, BY_ID, STYLES } from '../config.js';
 import { run, recompute, friendlyError } from '../service.js';
 import { getLive, onLive } from '../data.js';
-import { homeBrief, md } from '../ai.js';
+import { homeBrief, md, hasAI } from '../ai.js';
 import { tickerTape } from '../tv.js';
 import { esc, fp, num, ago, dirClass, dirWord, errorText, skeleton, leanText, forecastHtml, scenariosHtml } from '../ui.js';
 
@@ -142,7 +142,7 @@ async function renderAI(root, style, force) {
   const box = root.querySelector('#ai');
   if (!box) return;
   const header = `<h3>✨ ${t('aiSummary')}<span class="sp"></span><button class="btn small" id="ai-go">${t('refresh')}</button></h3>`;
-  if (!store.get('geminiKey')) { box.innerHTML = header + `<p class="muted small">${t('aiNeedKey')} <a href="#settings">⚙️</a></p>`; return; }
+  if (!hasAI()) { box.innerHTML = header + `<p class="muted small">${t('aiNeedKey')} <a href="#settings">⚙️</a></p>`; return; }
   const ready = Object.keys(results).length;
   if (!force && ready === 0) { box.innerHTML = header + skeleton(4); bind(); return; }
   box.innerHTML = header + skeleton(4);

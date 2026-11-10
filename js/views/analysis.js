@@ -3,7 +3,7 @@ import { store } from '../store.js';
 import { INSTRUMENTS, BY_ID, STYLES } from '../config.js';
 import { run, recompute, friendlyError } from '../service.js';
 import { onLive } from '../data.js';
-import { instrumentAnalysis, md } from '../ai.js';
+import { instrumentAnalysis, md, hasAI } from '../ai.js';
 import { advancedChart, technicalGauge, newsTimeline, econCalendar } from '../tv.js';
 import { esc, fp, num, dirClass, dirWord, errorText, skeleton, leanText, forecastHtml, scenariosHtml } from '../ui.js';
 import { styleSeg } from './home.js';
@@ -117,7 +117,7 @@ async function paintAI(root, id, r, style, force) {
   if (!box) return;
   const header = `<h3>✨ ${t('aiAnalysis')}<span class="sp"></span><button class="btn small" id="ai-go">${t('aiRun')}</button></h3>`;
   const bind = () => { const b = box.querySelector('#ai-go'); if (b) b.onclick = () => paintAI(root, id, r, style, true); };
-  if (!store.get('geminiKey')) { box.innerHTML = header + `<p class="muted small">${t('aiNeedKey')} <a href="#settings">⚙️</a></p>`; return; }
+  if (!hasAI()) { box.innerHTML = header + `<p class="muted small">${t('aiNeedKey')} <a href="#settings">⚙️</a></p>`; return; }
   if (!r) { box.innerHTML = header; bind(); return; }
   box.innerHTML = header + skeleton(6); bind();
   try {

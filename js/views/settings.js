@@ -2,7 +2,7 @@ import { t, L, applyDir } from '../i18n.js';
 import { store } from '../store.js';
 import { INSTRUMENTS, STYLES } from '../config.js';
 import { usage } from '../data.js';
-import { listModels, pickModel } from '../ai.js';
+import { testProvider } from '../ai.js';
 import { esc } from '../ui.js';
 
 export function render(root) {
@@ -19,17 +19,19 @@ export function render(root) {
     <div class="card">
       <h3>🔑 ${t('keys')}</h3>
       <div class="field"><label>${t('tdKey')}</label><input type="password" id="td" value="${esc(s.tdKey)}" autocomplete="off" placeholder="xxxxxxxxxxxxxxxx"></div>
+      <div class="field"><label>${t('groqKey')}</label><input type="password" id="gq" value="${esc(s.groqKey)}" autocomplete="off" placeholder="gsk_..."></div>
       <div class="field"><label>${t('geminiKey')}</label><input type="password" id="gm" value="${esc(s.geminiKey)}" autocomplete="off" placeholder="AIza..."></div>
-      <div class="field"><label>${t('model')}</label><select id="model"><option value="${esc(s.geminiModel)}">${esc(s.geminiModel || 'auto')}</option></select></div>
       <div class="row"><button class="btn gold" id="save">${t('save')}</button><button class="btn" id="test">${t('testKeys')}</button><span id="msg" class="small"></span></div>
       <div id="testres" class="small mt"></div>
       <details class="mt"><summary class="small" style="color:var(--gold2)">${t('howKeys')}</summary>
         <div class="help mt">${L({
           ar: `<b>Twelve Data (مجاني، 800 طلب باليوم):</b><ol><li>افتح <a href="https://twelvedata.com/register" target="_blank" rel="noopener">twelvedata.com/register</a> وسجّل بإيميلك</li><li>من الـ Dashboard، روح على <b>API Keys</b></li><li>انسخ المفتاح وحطّو فوق</li></ol>
-               <b>Gemini (مجاني بحدود):</b><ol><li>افتح <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> بحساب Gmail</li><li>اكبس <b>Create API key</b></li><li>انسخو وحطّو فوق، واكبس حفظ وبعدين جرّب المفاتيح</li></ol>
+               <b>Groq (مجاني، بلا بطاقة):</b><ol><li>افتح <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a> وفوت بحساب Gmail</li><li>اكبس <b>Create API Key</b>، حطّلو أي اسم</li><li>انسخو (بيبلّش بـ gsk_) وحطّو فوق، واكبس حفظ وبعدين جرّب المفاتيح</li></ol>
+               <b>Gemini (اختياري):</b> <span class="muted">بعض الحسابات Google ما بتعطيها مجاني. إذا طلعلك "free tier is not available"، اتركو فاضي واعتمد على Groq.</span>
                <span class="muted">المفاتيح بتنحفظ بس على تلفونك، وما بتنرفع على أي مكان.</span>`,
           en: `<b>Twelve Data (free, 800 credits/day):</b><ol><li>Open <a href="https://twelvedata.com/register" target="_blank" rel="noopener">twelvedata.com/register</a> and sign up</li><li>Dashboard → <b>API Keys</b></li><li>Copy the key into the field above</li></ol>
-               <b>Gemini (free tier):</b><ol><li>Open <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> with a Google account</li><li>Click <b>Create API key</b></li><li>Paste it above, Save, then Test keys</li></ol>
+               <b>Groq (free, no card):</b><ol><li>Open <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a> and sign in with Google</li><li>Click <b>Create API Key</b> and give it any name</li><li>Copy it (starts with gsk_), paste above, Save, then Test keys</li></ol>
+               <b>Gemini (optional):</b> <span class="muted">Some Google accounts get no free tier. If you see "free tier is not available", leave it empty and use Groq.</span>
                <span class="muted">Keys are stored only on this phone and never uploaded anywhere.</span>`,
         })}</div></details>
     </div>
@@ -69,12 +71,12 @@ export function render(root) {
   });
   const msg = root.querySelector('#msg');
   const save = () => {
-    const gm = root.querySelector('#gm').value.trim();
-    const patch = { tdKey: root.querySelector('#td').value.trim(), geminiKey: gm };
-    if (gm !== s.geminiKey) patch.geminiModel = '';
-    const mv = root.querySelector('#model').value;
-    if (mv && gm === s.geminiKey) patch.geminiModel = mv;
-    store.set(patch);
+    store.set({
+      tdKey: root.querySelector('#td').value.trim(),
+      groqKey: root.querySelector('#gq').value.trim(),
+      geminiKey: root.querySelector('#gm').value.trim(),
+      geminiModel: '',
+    });
     Object.keys(localStorage).filter(k => k.startsWith('gm.c.ai.')).forEach(k => localStorage.removeItem(k));
     msg.textContent = t('saved');
   };
@@ -93,16 +95,16 @@ export function render(root) {
           : `Twelve Data: <span class="up">${t('ok')}</span> (${esc(j.plan_category || j.plan_limit || '')})`);
       } catch (e) { lines.push(`Twelve Data: <span class="down">${t('fail')}</span> ${esc(e.message)}`); }
     }
-    const gk = store.get('geminiKey');
-    if (gk) {
+    for (const [name, label, key] of [['groq', 'Groq', store.get('groqKey')], ['gemini', 'Gemini', store.get('geminiKey')]]) {
+      if (!key) continue;
       try {
-        const names = await listModels(gk);
-        const best = pickModel(names);
-        if (!store.get('geminiModel')) store.set({ geminiModel: best });
-        const sel = root.querySelector('#model');
-        sel.innerHTML = names.map(n => `<option value="${esc(n)}" ${n === store.get('geminiModel') ? 'selected' : ''}>${esc(n)}</option>`).join('');
-        lines.push(`Gemini: <span class="up">${t('ok')}</span> → ${esc(store.get('geminiModel'))}`);
-      } catch (e) { lines.push(`Gemini: <span class="down">${t('fail')}</span> ${esc(e.message)}`); }
+        const m = await testProvider(name, key);
+        lines.push(`${label}: <span class="up">${t('ok')}</span> → ${esc(m)}`);
+      } catch (e) {
+        const hint = /free tier is not available|billing/i.test(e.message)
+          ? L({ ar: ' ← حسابك ما بيعطي Gemini مجاني. اعتمد على Groq.', en: ' ← No free Gemini for this account. Use Groq.' }) : '';
+        lines.push(`${label}: <span class="down">${t('fail')}</span> ${esc(e.message.slice(0, 160))}${esc(hint)}`);
+      }
     }
     out.innerHTML = lines.join('<br>') || '—';
   };

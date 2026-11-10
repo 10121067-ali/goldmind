@@ -4,6 +4,7 @@ const DEFAULTS = {
   lang: 'ar',
   style: 'day',
   tdKey: '',
+  groqKey: '',
   geminiKey: '',
   geminiModel: '',
   enabled: ['XAU', 'XAG', 'XPT', 'XPD', 'HG', 'WTI', 'DXY'],

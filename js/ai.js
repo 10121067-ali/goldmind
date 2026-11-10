@@ -22,19 +22,17 @@ export function pickModel(names) {
   return [...names].sort((a, b) => rank(b) - rank(a))[0];
 }
 
-async function model() {
+async function geminiModel(key) {
   let m = store.get('geminiModel');
-  if (!m) { m = pickModel(await listModels()); store.set({ geminiModel: m }); }
+  if (!m) { m = pickModel(await listModels(key)); store.set({ geminiModel: m }); }
   return m;
 }
 
-export async function generate(prompt, { search = true } = {}) {
-  const key = store.get('geminiKey');
-  if (!key) throw new Error('no-key');
-  const m = await model();
+async function gemini(prompt, { key = store.get('geminiKey'), search = true, maxTokens = 4096 } = {}) {
+  const m = await geminiModel(key);
   const body = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { temperature: 0.35, maxOutputTokens: 2048 },
+    generationConfig: { temperature: 0.35, maxOutputTokens: maxTokens },
   };
   if (search) body.tools = [{ google_search: {} }];
   const r = await fetch(`${API}/models/${m}:generateContent`, {
@@ -42,7 +40,7 @@ export async function generate(prompt, { search = true } = {}) {
   });
   const j = await r.json();
   if (!r.ok) {
-    if (search && r.status === 400) return generate(prompt, { search: false });
+    if (search && r.status === 400) return gemini(prompt, { key, search: false, maxTokens });
     throw new Error(j.error?.message || 'Gemini ' + r.status);
   }
   const cand = j.candidates?.[0];
@@ -50,7 +48,72 @@ export async function generate(prompt, { search = true } = {}) {
   const sources = (cand?.groundingMetadata?.groundingChunks || []).map(c => c.web).filter(Boolean)
     .map(w => ({ uri: w.uri, title: w.title })).slice(0, 8);
   if (!text) throw new Error('empty');
-  return { text, sources, model: m };
+  return { text, sources, model: 'Gemini · ' + m };
+}
+
+// Groq (free plan, no card). gpt-oss models browse the web server-side via the
+// built-in browser_search tool; on rate/size limits fall back to the smaller
+// model, then to no search.
+const GROQ = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_TRIES = [
+  { model: 'openai/gpt-oss-120b', search: true },
+  { model: 'openai/gpt-oss-20b', search: true },
+  { model: 'openai/gpt-oss-120b', search: false },
+];
+
+async function groqOnce(prompt, key, { model, search, maxTokens }) {
+  const body = {
+    model, messages: [{ role: 'user', content: prompt }],
+    temperature: 0.4, max_completion_tokens: maxTokens, reasoning_effort: 'low',
+  };
+  if (search) body.tools = [{ type: 'browser_search' }];
+  const r = await fetch(GROQ, {
+    method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key }, body: JSON.stringify(body),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(j.error?.message || 'Groq ' + r.status); e.status = r.status; throw e; }
+  const msg = j.choices?.[0]?.message || {};
+  const text = (msg.content || '').replace(/【[^】]*】/g, '').trim();
+  if (!text) throw new Error('empty');
+  const sources = [];
+  for (const tool of msg.executed_tools || []) {
+    for (const s of tool.search_results?.results || []) if (s.url) sources.push({ uri: s.url, title: s.title });
+  }
+  return { text, sources: sources.slice(0, 8), model: 'Groq · ' + model.replace('openai/', '') + (search ? ' + web' : '') };
+}
+
+async function groq(prompt, { key = store.get('groqKey'), search = true, maxTokens = 3000 } = {}) {
+  let last;
+  for (const t of GROQ_TRIES.filter(x => search || !x.search)) {
+    try { return await groqOnce(prompt, key, { ...t, maxTokens }); } catch (e) {
+      last = e;
+      if (e.status === 401 || e.status === 403) throw e;
+    }
+  }
+  throw last;
+}
+
+export const hasAI = () => !!(store.get('groqKey') || store.get('geminiKey'));
+
+// Groq first (free everywhere), Gemini as fallback, or the other way round if
+// only one key is set.
+export async function generate(prompt, opts = {}) {
+  const providers = [];
+  if (store.get('groqKey')) providers.push(groq);
+  if (store.get('geminiKey')) providers.push(gemini);
+  if (!providers.length) throw new Error('no-key');
+  let last;
+  for (const p of providers) {
+    try { return await p(prompt, opts); } catch (e) { last = e; }
+  }
+  throw last;
+}
+
+// Real round-trip used by the settings "Test keys" button.
+export async function testProvider(name, key) {
+  const fn = name === 'groq' ? groq : gemini;
+  const out = await fn('Reply with the single word: OK', { key, search: false, maxTokens: 1024 });
+  return out.model;
 }
 
 const fmt = (x, dp) => (x == null || Number.isNaN(x) ? '—' : Number(x).toFixed(dp));
@@ -83,7 +146,7 @@ Trading style: ${STYLES[style].label.en} (entry timeframe ${STYLES[style].tfLabe
 Below is the live output of our quantitative engine (19 technical strategies, multi-timeframe filter, dollar-index filter, walk-forward backtest):
 ${lines}
 
-Use Google Search to get TODAY's market-moving news for gold, silver, platinum, palladium, copper, oil and the US dollar (Fed, CPI/jobs data, yields, geopolitics, central-bank buying, China demand, OPEC).
+Search the web to get TODAY's market-moving news for gold, silver, platinum, palladium, copper, oil and the US dollar (Fed, CPI/jobs data, yields, geopolitics, central-bank buying, China demand, OPEC).
 Write in ${langName()}. Max 170 words. Use this exact structure with short bullet points:
 ### 🌍 
 (market mood today + the 2-3 news items that matter most, each with its likely effect)
@@ -121,7 +184,7 @@ Engine output: ${engineLine(id, res)}
 Key levels from price action:
 ${z}
 
-Use Google Search for the latest news and fundamentals affecting ${inst.name.en} today and this week.
+Search the web for the latest news and fundamentals affecting ${inst.name.en} today and this week.
 Write in ${langName()}, max 300 words, with these sections:
 ### 📰 
 (latest news & fundamentals with dates, and their likely impact)

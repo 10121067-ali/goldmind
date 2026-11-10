@@ -1,6 +1,6 @@
 // App shell: network-first (always the newest version when online),
 // falling back to the cached copy when offline. Market data is never cached here.
-const CACHE = 'goldmind-v3';
+const CACHE = 'goldmind-v4';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/app.js', './js/ai.js', './js/config.js', './js/data.js', './js/engine.js', './js/i18n.js',
