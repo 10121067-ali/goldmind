@@ -222,7 +222,7 @@ async function paintAI(root, id, r, pj, force) {
   const header = `<h3>✨ ${L({ ar: 'الذكاء الاصطناعي يشرحلك النهار', en: 'AI walk-through of the day' })}<span class="sp"></span><button class="btn small" id="td-ai-go">${t('aiRun')}</button></h3>`;
   const bind = () => { const b = box.querySelector('#td-ai-go'); if (b) b.onclick = () => { const cur = root._td || { r, pj }; paintAI(root, id, cur.r, cur.pj, true); }; };
   if (!hasAI()) { box.innerHTML = header + `<p class="muted small">${t('aiNeedKey')} <a href="#settings">⚙️</a></p>`; return; }
-  const ck = `ai.day3.${id}.${lang()}`;
+  const ck = `ai.day4.${id}.${lang()}`;
   const hit = cache.get(ck);
   if (hit && !force && Date.now() - hit.at < 60 * 6e4) { show(hit.data); return; }
   if (!force) { box.innerHTML = header + `<p class="muted small">${L({ ar: 'اكبس "حلّل هلّق" ليشرحلك شو متوقّع اليوم ساعة بساعة.', en: 'Tap "Analyze now" for an hour-by-hour walk-through.' })}</p>`; bind(); return; }
@@ -236,6 +236,8 @@ async function paintAI(root, id, r, pj, force) {
     .map(e => `${lt(e.time)} ${e.country} ${e.impact} "${e.title}" fcst ${e.forecast || '-'} prev ${e.previous || '-'}`).join('\n') || 'none';
   const pastLines = pj.events.filter(e => e.time < pj.t0 && e.time > pj.t0 - 36 * 36e5 && e.impact !== 'Holiday')
     .map(e => `${lt(e.time)} ${e.country} ${e.impact} "${e.title}" ${e.actual ? `actual ${e.actual}` : 'released (check the web for the actual)'} fcst ${e.forecast || '-'} prev ${e.previous || '-'}`).join('\n');
+  const NAMES = { buyLimit: 'BUY LIMIT (buy the dip at support)', sellLimit: 'SELL LIMIT (sell the rally at resistance)', buyStop: 'BUY STOP (buy a breakout above resistance)', sellStop: 'SELL STOP (sell a breakdown below support)' };
+  const plans = (r.res.scenarios || []).map(s => `${NAMES[s.type] || s.type}: entry ${fx(s.entry)}, stop-loss ${fx(s.sl)}, TP1 ${fx(s.tp1)}, TP2 ${fx(s.tp2)}${s.likely ? ' [favoured by the lean]' : ''}`).join('\n') || 'none';
   const holidays = pj.events.filter(e => e.impact === 'Holiday').map(e => `${e.country} ${e.title}`).join(', ');
   const prompt = `You are a senior ${inst.name.en} intraday trader. All times below are the user's local time (${tz}). Now: ${lt(Date.now())}. Price ${fx(pj.price)}.
 Sessions in local time: Asia ${sess(0)}-${sess(7)}, London ${sess(7)}-${sess(12.5)}, New York ${sess(12.5)}-${sess(21)}.
@@ -249,10 +251,11 @@ Search the web for today's news on ${inst.name.en}, then write in ${lang() === '
 ### 🕐 
 (from now until the end of the window only, never hours already past: the coming sessions and each event above, what is likely around it; use the local times exactly as given)
 ### 🎯 
-(how to trade today with the levels above: where to buy, where to sell, where to stay out)
+(explain which of these pre-computed pending orders makes most sense today and when; copy their entry/stop/targets exactly, never create other orders or move stops; also say where to stay out:
+${plans})
 ### ⚠️ 
 (main risks today)
-Use only the numbers above for levels; never invent prices or event times. Ignore web articles older than 3 days. Keep each trade idea internally consistent (buy near support, sell near resistance, stop beyond the level).`;
+Use only the numbers above for levels; never invent prices or event times. Ignore web articles older than 3 days. For a buy the stop is always below entry, for a sell always above.`;
   try {
     const out = await generate(prompt);
     cache.set(ck, out);
