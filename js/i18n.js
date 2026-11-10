@@ -3,6 +3,7 @@ import { store } from './store.js';
 const T = {
   appName: { ar: 'GoldMind', en: 'GoldMind' },
   tabHome: { ar: 'الزبدة', en: 'Summary' },
+  tabToday: { ar: 'توقّع اليوم', en: 'Today' },
   tabAnalysis: { ar: 'التحليل والأخبار', en: 'Analysis & News' },
   tabStrategies: { ar: 'الاستراتيجيات', en: 'Strategies' },
   settings: { ar: 'الإعدادات', en: 'Settings' },

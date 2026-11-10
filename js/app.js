@@ -3,6 +3,7 @@ import { startLive } from './data.js';
 import * as home from './views/home.js';
 import * as analysis from './views/analysis.js';
 import * as strategies from './views/strategies.js';
+import * as today from './views/today.js';
 import * as settings from './views/settings.js';
 
 const view = document.getElementById('view');
@@ -13,10 +14,11 @@ function relabel() {
 
 function route() {
   const [name, arg] = location.hash.replace(/^#/, '').split('/');
-  home.destroy(); analysis.destroy(); strategies.destroy();
+  home.destroy(); analysis.destroy(); strategies.destroy(); today.destroy();
   document.querySelectorAll('nav.tabs a').forEach(a => a.classList.toggle('on', a.dataset.tab === (name || 'home')));
   window.scrollTo(0, 0);
-  if (name === 'analysis') analysis.render(view, arg);
+  if (name === 'today') today.render(view, arg);
+  else if (name === 'analysis') analysis.render(view, arg);
   else if (name === 'strategies') strategies.render(view, arg);
   else if (name === 'settings') settings.render(view);
   else home.render(view);
@@ -42,7 +44,7 @@ route();
 document.querySelector('nav.tabs').addEventListener('click', (e) => {
   const a = e.target.closest('a'); if (!a) return;
   const cur = location.hash.split('/')[1];
-  if (cur && (a.dataset.tab === 'analysis' || a.dataset.tab === 'strategies')) {
+  if (cur && ['analysis', 'strategies', 'today'].includes(a.dataset.tab)) {
     e.preventDefault(); location.hash = `#${a.dataset.tab}/${cur}`;
   }
 });

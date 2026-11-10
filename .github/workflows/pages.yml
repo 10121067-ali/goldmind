@@ -1,0 +1,49 @@
+# Deploys the app to GitHub Pages and bundles a fresh economic calendar
+# (data/calendar.json, same-origin so the phone can read it without CORS).
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch economic calendar
+        run: |
+          mkdir -p data
+          for i in 1 2 3; do
+            if curl -fsSL --max-time 30 -A 'GoldMind/1.0' https://nfs.faireconomy.media/ff_calendar_thisweek.json -o /tmp/cal.json \
+               && jq -e 'type == "array" and length > 0' /tmp/cal.json > /dev/null; then
+              jq -c --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{at: $at, events: .}' /tmp/cal.json > data/calendar.json
+              break
+            fi
+            sleep 20
+          done
+          [ -f data/calendar.json ] || echo '{"at":null,"events":[]}' > data/calendar.json
+          echo "events: $(jq '.events | length' data/calendar.json)"
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4

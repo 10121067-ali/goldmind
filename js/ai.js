@@ -1,6 +1,7 @@
 import { store, cache } from './store.js';
 import { BY_ID, STYLES } from './config.js';
 import { lang } from './i18n.js';
+import { loadCalendar, relevant } from './calendar.js';
 
 const API = 'https://generativelanguage.googleapis.com/v1beta';
 
@@ -136,6 +137,17 @@ export function engineLine(id, res) {
     ` | reasons: ${reasons}`;
 }
 
+async function calendarLines(id) {
+  const { events } = await loadCalendar();
+  const now = Date.now();
+  const list = relevant(events, id || 'XAU').filter(e => e.time > now - 6 * 36e5 && e.time < now + 48 * 36e5 && e.impact !== 'Holiday');
+  if (!list.length) return 'Economic calendar: no major scheduled events in the next 48h.';
+  return 'Economic calendar (authoritative times, UTC):\n' + list.map(e =>
+    `${new Date(e.time).toISOString().slice(0, 16).replace('T', ' ')} UTC ${e.country} [${e.impact}] ${e.title}` +
+    (e.actual ? ` actual ${e.actual}` : '') + (e.forecast ? ` forecast ${e.forecast}` : '') + (e.previous ? ` previous ${e.previous}` : '') +
+    (e.time < now ? ' (already released)' : '')).join('\n');
+}
+
 const langName = () => (lang() === 'ar' ? 'Lebanese/Levantine Arabic (simple, clear; keep technical terms like RSI, EMA in English)' : 'English');
 const today = () => new Date().toUTCString();
 
@@ -149,6 +161,8 @@ Trading style: ${STYLES[style].label.en} (entry timeframe ${STYLES[style].tfLabe
 Below is the live output of our quantitative engine (19 technical strategies, multi-timeframe filter, dollar-index filter, walk-forward backtest):
 ${lines}
 
+${await calendarLines('XAU')}
+
 Search the web to get TODAY's market-moving news for gold, silver, platinum, palladium, copper, oil and the US dollar (Fed, CPI/jobs data, yields, geopolitics, central-bank buying, China demand, OPEC).
 Write in ${langName()}. Max 170 words. Use this exact structure with short bullet points:
 ### 🌍 
@@ -156,7 +170,7 @@ Write in ${langName()}. Max 170 words. Use this exact structure with short bulle
 ### 🎯 
 (the best 1-2 opportunities, ONLY among the markets listed above. Only recommend a trade when the engine signal and the news agree; otherwise say wait. Quote the engine's entry/SL/targets exactly.)
 ### ⚠️ 
-(upcoming risk events you actually found in a source, with time converted to UTC; skip events already released today, and say "time unconfirmed" if unsure)
+(upcoming risk events: take times ONLY from the economic calendar above, in UTC; skip events already released)
 Never invent prices, times or engine signals. Do not claim an engine signal for a market that is not listed above. Be direct and honest; no hype.
 After the text, add one line per market in exactly this format (no extra text):
 VERDICT XAU: BUY|SELL|WAIT
@@ -187,6 +201,8 @@ Engine output: ${engineLine(id, res)}
 Key levels from price action:
 ${z}
 
+${await calendarLines(id)}
+
 Search the web for the latest news and fundamentals affecting ${inst.name.en} today and this week.
 Write in ${langName()}, max 300 words, with these sections:
 ### 📰 
@@ -198,7 +214,7 @@ Write in ${langName()}, max 300 words, with these sections:
 ### 🎯 
 (trade plan: agree with the engine signal, or explain clearly why to wait. Use the engine's entry/SL/targets.)
 ### 📅 
-(upcoming events this week that can move ${inst.short}, only ones you found in a source, times in UTC or "time unconfirmed")
+(upcoming events that can move ${inst.short}: take times ONLY from the economic calendar above, in UTC)
 Never invent prices, times or engine signals. No hype; be honest about uncertainty.`;
   const out = await generate(prompt);
   cache.set(ck, out);

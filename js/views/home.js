@@ -5,10 +5,25 @@ import { run, recompute, friendlyError } from '../service.js';
 import { getLive, onLive } from '../data.js';
 import { homeBrief, md, hasAI } from '../ai.js';
 import { tickerTape } from '../tv.js';
+import { loadCalendar, relevant } from '../calendar.js';
 import { esc, fp, num, ago, dirClass, dirWord, errorText, skeleton, leanText, forecastHtml, scenariosHtml } from '../ui.js';
 
 let results = {};
 let cleanup = [];
+let calEvents = [];
+
+// Warn around high-impact news: spreads widen and stops get hunted.
+function newsAlert(id) {
+  const now = Date.now();
+  const e = relevant(calEvents, id).filter(x => x.impact === 'High')
+    .find(x => x.time > now - 15 * 6e4 && x.time < now + 60 * 6e4);
+  if (!e) return '';
+  const mins = Math.round((e.time - now) / 6e4);
+  const txt = mins > 0
+    ? L({ ar: `⚠️ خبر قوي بعد ${mins} دقيقة: ${e.title}. الأفضل ما تفوت قبلو، والوقف بيتضرب بسهولة.`, en: `⚠️ High-impact news in ${mins} min: ${e.title}. Avoid entering before it; stops get hit easily.` })
+    : L({ ar: `⚠️ نزل خبر قوي من ${-mins} دقيقة: ${e.title}. السوق متقلّب، استنّى يهدى.`, en: `⚠️ High-impact news ${-mins} min ago: ${e.title}. Volatile; let it settle.` });
+  return `<div class="news-alert">${esc(txt)}</div>`;
+}
 
 export function styleSeg(onChange) {
   const cur = store.get('style');
@@ -42,6 +57,7 @@ export function render(root) {
   };
   const style = store.get('style');
   ids.forEach(id => paintCard(id, null));
+  loadCalendar().then(c => { calEvents = c.events; Object.keys(results).forEach(id => paintCard(id, results[id])); });
   renderAI(root, style, false);
 
   const order = ['XAU', 'XAG', 'DXY', 'XPT', 'XPD', 'HG', 'WTI'].filter(id => ids.includes(id));
@@ -135,7 +151,7 @@ function paintCard(id, r) {
   const foot = `<div class="mk-foot">
       <span>📊 ${t('backtest')}: <b class="num">${bt.trades ? Math.round(bt.winRate * 100) + '%' : '—'}</b> · ${num(bt.trades)} ${t('trades')} · ${num((bt.avgR >= 0 ? '+' : '') + bt.avgR.toFixed(2) + 'R')}</span>
       <span>${aiBadge} ${t('candlesAge')}: ${ago(r.at)}${r.stale ? ' ⚠️' : ''}</span></div>`;
-  el.innerHTML = head + signal + body + reasons + foot;
+  el.innerHTML = head + newsAlert(id) + signal + body + reasons + foot;
 }
 
 async function renderAI(root, style, force) {
